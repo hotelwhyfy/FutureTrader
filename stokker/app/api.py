@@ -241,6 +241,78 @@ def api_rolls(symbol: str, start: str = "2010-01-01"):
     }
 
 
+# ---------------------------------------------------------- walk-forward
+WF_GRIDS = {
+    "tsmom": {"lookback": [63, 126, 252, 504]},
+    "tsmom-scaled": {"lookback": [63, 126, 252, 504]},
+    "ewma": {"fast": [16, 32, 64], "slow": [128, 256]},
+    "cot-extreme": {"lookback_weeks": [104, 156, 260], "deadband": [0.5, 1.0, 1.5]},
+}
+WF_CLASSES = {
+    "tsmom": TimeSeriesMomentum, "tsmom-scaled": TimeSeriesMomentum,
+    "ewma": EWMACrossover, "cot-extreme": CotExtreme,
+}
+
+
+@app.get("/api/walkforward")
+def api_walkforward(signal: str = "tsmom", start: str = "2006-01-01",
+                    train: float = 5.0, test: float = 1.0,
+                    anchored: bool = False, stressed: bool = False,
+                    syms: str | None = Query(None)):
+    from stokker.backtest.walkforward import WalkForward
+
+    if signal not in WF_GRIDS:
+        raise HTTPException(400, f"no grid for {signal!r}")
+    grid, cls = WF_GRIDS[signal], WF_CLASSES[signal]
+    fixed = {"binary": False} if signal == "tsmom-scaled" else {}
+
+    wanted = [s.strip().upper() for s in syms.split(",")] if syms else symbols()
+    datasets = {}
+    for sym in wanted:
+        try:
+            datasets[sym] = research.load(sym, start=start)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("walkforward %s: %s", sym, exc)
+    if not datasets:
+        raise HTTPException(404, "no instruments could be loaded")
+
+    wf = WalkForward(train_years=train, test_years=test, anchored=anchored)
+    try:
+        res = wf.run_pooled(datasets, cls, grid,
+                            costs=STRESSED if stressed else DEFAULT, fixed=fixed)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, str(exc)) from exc
+
+    stab = res.stability()
+    pcols = [c for c in stab.columns if "sharpe" not in c]
+    dates, equity = _downsample(res.equity())
+    fixed_eq = (1.0 + res.fixed_oos_returns.reindex(res.oos_returns.index).fillna(0.0)).cumprod()
+
+    return {
+        "signal": signal,
+        "instruments": len(datasets),
+        "grid": {k: list(v) for k, v in grid.items()},
+        "summary": {k: _clean(v) for k, v in res.summary().items()},
+        "in_sample_params": res.in_sample_params,
+        "fixed_params": res.fixed_params or {},
+        "param_names": pcols,
+        "folds": [
+            {"fold": int(i),
+             "params": {c: _clean(row[c]) for c in pcols},
+             "train_sharpe": _clean(row["train_sharpe"]),
+             "test_sharpe": _clean(row["test_sharpe"]),
+             "train_start": f.spec.train_start.strftime("%Y-%m-%d"),
+             "train_end": f.spec.train_end.strftime("%Y-%m-%d"),
+             "test_start": f.spec.test_start.strftime("%Y-%m-%d"),
+             "test_end": f.spec.test_end.strftime("%Y-%m-%d")}
+            for (i, row), f in zip(stab.iterrows(), res.folds)
+        ],
+        "dates": dates,
+        "equity": equity,
+        "fixed_equity": _downsample(fixed_eq)[1],
+    }
+
+
 # ------------------------------------------------------------------ static
 @app.get("/")
 def index():

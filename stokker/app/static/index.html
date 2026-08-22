@@ -32,6 +32,7 @@
   <button class="tab active" data-panel="overview">Overview</button>
   <button class="tab" data-panel="backtest">Backtest</button>
   <button class="tab" data-panel="positioning">Positioning</button>
+  <button class="tab" data-panel="walkforward">Walk-forward</button>
   <button class="tab" data-panel="rolls">Roll diagnostics</button>
 </div>
 
@@ -87,6 +88,28 @@
       aligning on the report date would leak three days of hindsight into every week.
     </div>
     <div id="cot-out"><div class="empty">Pick an instrument to load its COT history.</div></div>
+  </section>
+
+  <!-- --------------------------------------------------- WALK-FORWARD -->
+  <section class="panel" id="panel-walkforward">
+    <div class="row">
+      <label class="field">Train <select id="wf-train">
+        <option value="3">3 years</option><option value="5" selected>5 years</option>
+        <option value="7">7 years</option></select></label>
+      <label class="field">Test <select id="wf-test">
+        <option value="1" selected>1 year</option><option value="2">2 years</option></select></label>
+      <label class="toggle"><input type="checkbox" id="wf-anchored"> Anchored</label>
+      <button class="primary" id="run-wf">Run walk-forward</button>
+      <span class="dim" id="wf-status"></span>
+    </div>
+    <div class="note">
+      Parameters are chosen using <strong>only</strong> each fold's training window, then
+      applied blind to the next unseen year. The stitched test slices are the only honest
+      curve. This does not narrow confidence intervals — test windows are shorter than the
+      full sample, so out-of-sample Sharpe carries a <em>wider</em> interval. It measures
+      how much of a backtest was fitting, not whether the strategy works.
+    </div>
+    <div id="wf-out"><div class="empty">Run a walk-forward to see the overfitting tax.</div></div>
   </section>
 
   <!-- ---------------------------------------------------------- ROLLS -->

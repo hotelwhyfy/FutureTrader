@@ -502,6 +502,72 @@ async function loadRolls() {
   } catch (e) { fail(out, e); }
 }
 
+/* ========================================================= WALK-FORWARD === */
+async function loadWalkforward() {
+  const out = $("#wf-out"), status = $("#wf-status");
+  busy(out, "Running walk-forward across 43 instruments — this takes a minute…");
+  status.textContent = "";
+  try {
+    const d = await api("walkforward", {
+      signal: $("#signal").value, start: $("#start").value,
+      stressed: $("#stressed").checked, train: $("#wf-train").value,
+      test: $("#wf-test").value, anchored: $("#wf-anchored").checked,
+    });
+    const s = d.summary;
+    const pstr = o => Object.entries(o ?? {}).map(([k, v]) => `${k}=${v}`).join(", ") || "defaults";
+    const tuningBad = isNum(s.selection_edge) && s.selection_edge < 0;
+
+    out.innerHTML = `<div class="metrics">
+      <div class="metric"><div class="k">In-sample</div><div class="v ${cls(s.in_sample_sharpe)}">${fmt.num(s.in_sample_sharpe)}</div>
+        <div class="d">hindsight · ${pstr(d.in_sample_params)}</div></div>
+      <div class="metric"><div class="k">Out-of-sample</div><div class="v ${cls(s.oos_sharpe)}">${fmt.num(s.oos_sharpe)}</div>
+        <div class="d">what survived</div></div>
+      <div class="metric"><div class="k">Never tuned</div><div class="v ${cls(s.fixed_sharpe)}">${fmt.num(s.fixed_sharpe)}</div>
+        <div class="d">control · ${pstr(d.fixed_params)}</div></div>
+      <div class="metric"><div class="k">Overfitting tax</div><div class="v ${cls(-s.overfit_gap)}">${fmt.num(s.overfit_gap)}</div>
+        <div class="d">in-sample − OOS</div></div>
+      <div class="metric"><div class="k">Value of tuning</div><div class="v ${cls(s.selection_edge)}">${fmt.num(s.selection_edge)}</div>
+        <div class="d">${tuningBad ? "negative — stop tuning" : "OOS − never tuned"}</div></div>
+      <div class="metric"><div class="k">Folds</div><div class="v dim">${fmt.int(s.folds)}</div>
+        <div class="d">${fmt.num(s.oos_years, 1)} OOS years</div></div>
+    </div>
+    ${tuningBad ? `<div class="note"><strong>Tuning is destroying value here.</strong>
+      Walk-forward selection (${fmt.num(s.oos_sharpe)}) lands below simply never tuning
+      (${fmt.num(s.fixed_sharpe)}). The parameter surface is noise: the harness is working,
+      and the correct response is to stop searching it.</div>` : ""}
+    <div class="card"><h2>Out-of-sample equity</h2>
+      <p class="sub">Stitched test windows only — each segment traded with parameters chosen
+      before it began. Compared against the never-tuned baseline over the same span.</p>
+      <div id="wf-equity"></div></div>
+    <div class="card"><h2>Per-fold selection</h2>
+      <p class="sub">If training Sharpe predicted test Sharpe, these columns would move
+      together. Selections that jump between folds mean there is no stable optimum.</p>
+      <div id="wf-table"></div></div>`;
+
+    lineChart($("#wf-equity"), {
+      dates: d.dates, height: 300, logScale: true, yFormat: v => fmt.num(v, 2) + "×",
+      series: [
+        { label: "Walk-forward (out-of-sample)", values: d.equity, color: "var(--accent)" },
+        { label: "Never tuned", values: d.fixed_equity, color: "var(--text-faint)", dashed: true },
+      ],
+    });
+
+    const pcols = d.param_names.map(c => ({
+      key: c, label: c, fmt: r => fmt.int(r.params[c]),
+    }));
+    table($("#wf-table"), [
+      { key: "fold", label: "Fold", fmt: r => r.fold },
+      { key: "train_start", label: "Train", fmt: r => `${r.train_start.slice(0,7)} → ${r.train_end.slice(0,7)}`, cls: () => "name" },
+      { key: "test_start", label: "Test", fmt: r => `${r.test_start.slice(0,7)} → ${r.test_end.slice(0,7)}`, cls: () => "name" },
+      ...pcols,
+      { key: "train_sharpe", label: "Train SR", fmt: r => fmt.num(r.train_sharpe), cls: r => cls(r.train_sharpe) },
+      { key: "test_sharpe", label: "Test SR", fmt: r => fmt.num(r.test_sharpe), cls: r => cls(r.test_sharpe) },
+    ], d.folds);
+
+    status.textContent = `${d.instruments} instruments · ${s.distinct_selections} distinct selections`;
+  } catch (e) { fail(out, e); }
+}
+
 /* ================================================================ init === */
 async function init() {
   const [uni, sigs] = await Promise.all([api("universe"), api("signals")]);
@@ -521,6 +587,7 @@ async function init() {
   $("#run-bt").onclick    = loadBacktest;
   $("#run-cot").onclick   = loadCot;
   $("#run-roll").onclick  = loadRolls;
+  $("#run-wf").onclick    = loadWalkforward;
 
   const root = document.documentElement;
   const saved = (() => { try { return localStorage.getItem("stokker-theme"); } catch { return null; } })();

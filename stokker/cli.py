@@ -8,6 +8,7 @@
     stokker backtest ES --signal tsmom
     stokker sweep --signal tsmom
     stokker state                    current signal across the universe
+    stokker walkforward              out-of-sample parameter evaluation
 """
 
 from __future__ import annotations
@@ -154,6 +155,76 @@ def cmd_state(args) -> int:
     return 0
 
 
+# Grids are deliberately small and log-spaced. A dense grid is a licence to
+# overfit: every extra candidate raises the best in-sample score on noise alone.
+WF_GRIDS = {
+    "tsmom": {"lookback": [63, 126, 252, 504]},
+    "tsmom-scaled": {"lookback": [63, 126, 252, 504]},
+    "ewma": {"fast": [16, 32, 64], "slow": [128, 256]},
+    "cot-extreme": {"lookback_weeks": [104, 156, 260], "deadband": [0.5, 1.0, 1.5]},
+}
+
+WF_CLASSES = {
+    "tsmom": TimeSeriesMomentum, "tsmom-scaled": TimeSeriesMomentum,
+    "ewma": EWMACrossover, "cot-extreme": CotExtreme,
+}
+
+
+def cmd_walkforward(args) -> int:
+    """Out-of-sample evaluation with train-only parameter selection."""
+    from stokker import research
+    from stokker.backtest.walkforward import WalkForward
+
+    if args.signal not in WF_GRIDS:
+        print(f"no grid defined for {args.signal!r}; "
+              f"available: {', '.join(sorted(WF_GRIDS))}", file=sys.stderr)
+        return 1
+
+    cls, grid = WF_CLASSES[args.signal], WF_GRIDS[args.signal]
+    fixed = {"tsmom-scaled": {"binary": False}}.get(args.signal, {})
+    wf = WalkForward(train_years=args.train, test_years=args.test,
+                     anchored=args.anchored, embargo_days=args.embargo)
+    costs = STRESSED if args.stressed else DEFAULT
+
+    syms = [s.strip().upper() for s in args.symbols.split(",")] if args.symbols else symbols()
+    datasets = {}
+    for sym in syms:
+        try:
+            datasets[sym] = research.load(sym, start=args.start)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  {sym}: skipped ({exc})", file=sys.stderr)
+    if not datasets:
+        return 1
+
+    if args.per_instrument:
+        rows = []
+        for sym, ds in datasets.items():
+            try:
+                r = wf.run(ds, cls, grid, costs=costs, fixed=fixed)
+                rows.append(r.summary())
+            except Exception as exc:  # noqa: BLE001
+                print(f"  {sym}: {exc}", file=sys.stderr)
+        if not rows:
+            return 1
+        _show(pd.DataFrame(rows))
+        return 0
+
+    res = wf.run_pooled(datasets, cls, grid, costs=costs, fixed=fixed)
+    print(f"\nsignal={args.signal}  grid={grid}  {len(datasets)} instruments")
+    print(f"{wf.train_years}y train / {wf.test_years}y test"
+          f"{' (anchored)' if args.anchored else ' (rolling)'}\n")
+    _show(res.summary().to_frame().T)
+    print("\nPer-fold selection:")
+    _show(res.stability())
+    print(f"\n  in-sample (hindsight)   {res.in_sample_sharpe:+.3f}  {res.in_sample_params}")
+    print(f"  out-of-sample           {res.oos_sharpe:+.3f}")
+    print(f"  never-tuned baseline    {res.fixed_sharpe:+.3f}  {res.fixed_params or 'defaults'}")
+    print(f"\n  overfitting tax         {res.overfit_gap:+.3f} Sharpe")
+    print(f"  value of tuning         {res.selection_edge:+.3f} Sharpe", end="")
+    print("   <- negative means stop tuning" if res.selection_edge < 0 else "")
+    return 0
+
+
 def cmd_ui(args) -> int:
     """Serve the web UI."""
     import uvicorn
@@ -172,6 +243,18 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("verify-universe").set_defaults(fn=cmd_verify_universe)
+
+    s = sub.add_parser("walkforward", help="out-of-sample parameter evaluation")
+    s.add_argument("--symbols")
+    s.add_argument("--signal", choices=sorted(WF_GRIDS), default="tsmom")
+    s.add_argument("--train", type=float, default=5.0, help="training years")
+    s.add_argument("--test", type=float, default=1.0, help="test years per fold")
+    s.add_argument("--embargo", type=int, default=0)
+    s.add_argument("--anchored", action="store_true", help="grow train window from a fixed origin")
+    s.add_argument("--per-instrument", action="store_true",
+                   help="select parameters per market instead of one set for all")
+    s.add_argument("--stressed", action="store_true")
+    s.set_defaults(fn=cmd_walkforward)
 
     s = sub.add_parser("ui", help="serve the web UI")
     s.add_argument("--host", default="127.0.0.1")

@@ -37,12 +37,13 @@ Optional: put a free [FRED key](https://fredaccount.stlouisfed.org/apikeys) in
 ## Web UI
 
 `stokker ui` serves a FastAPI backend plus a dependency-free frontend at
-`localhost:8000`. Four tabs:
+`localhost:8000`. Five tabs:
 
 - **Overview** — current signal per instrument, with bar/COT staleness, plus the
   universe backtest
 - **Backtest** — equity vs buy-and-hold, drawdown, position over time
 - **Positioning** — COT speculators vs commercials, normalised by open interest
+- **Walk-forward** — out-of-sample curve vs never-tuned baseline, per-fold selections
 - **Roll diagnostics** — impact metrics and the calendar validation test
 
 Every endpoint delegates to `stokker.research`, so the UI cannot disagree with
@@ -216,6 +217,53 @@ genuine CFTC typo (`Swap__Positions_Short_All`, doubled underscore).
 
 ---
 
+## Two ways to overfit, and the harness for each
+
+**In time** — `stokker walkforward`. Parameters are chosen using only each
+fold's training window, then applied blind to the next unseen year. Three
+numbers come out and the third is the one that matters: in-sample (hindsight),
+out-of-sample (what survived), and a never-tuned control.
+
+Pooled over 43 markets, 5y train / 1y test, from 2006:
+
+| Signal | In-sample | Out-of-sample | Never tuned | Overfit tax | Value of tuning |
+|---|---|---|---|---|---|
+| TS momentum | 0.153 | −0.035 | 0.153 | **+0.188** | **−0.188** |
+| EWMA | 0.021 | −0.181 | −0.082 | +0.203 | −0.099 |
+| COT extreme | 0.607 | 0.523 | 0.493 | +0.084 | +0.030 |
+
+The overfitting tax is **positive in every configuration tested** — hindsight
+selection always beats blind application. The value of tuning is negative in
+most, meaning parameter search actively destroys value versus leaving the
+conventional default alone. For momentum the never-tuned default (252 days)
+*is* the full-sample optimum, so the entire −0.188 is the cost of chasing it.
+
+Fold-level rank correlation between training Sharpe and test Sharpe is
+**negative** (−0.54 for momentum, −0.61 for EWMA, both p ≤ 0.03): whichever
+lookback won the last five years tends to lose the next one. Caveat — rolling
+5-year training windows stepping 1 year share four years of data, so folds are
+not independent and those p-values are optimistic.
+
+**In universe** — `universe_bootstrap()`. Walk-forward cannot see this: every
+fold trades the same instrument list, so a signal that only works on the markets
+you happened to pick sails straight through. This project walked into exactly
+that trap. `CotExtreme` scored **−0.153 on the original 15 markets** and
+**+0.429 on the expanded 43** — a 0.58 Sharpe swing caused by nothing but list
+membership.
+
+Resampling 1,000 random 15-market subsets from the 43:
+
+| Signal | mean | sd | 95% range | P(< 0) |
+|---|---|---|---|---|
+| COT extreme | +0.303 | 0.167 | [−0.02, +0.65] | 3% |
+| TS momentum | +0.173 | 0.131 | [−0.07, +0.42] | 10% |
+
+The original 15-market universe sits **below the 2nd percentile** of that
+distribution for COT. It was an unlucky draw, not a refutation — see the
+correction below.
+
+---
+
 ## Layout
 
 ```
@@ -243,12 +291,20 @@ tests/                 34 tests; lookahead + roll regressions
 
 ## If you take this further
 
-1. ~~Test COT per sector.~~ **Done, and refuted.** Physical markets
-   (−0.058) beat financials (−0.229) directionally, exactly as the hedger
-   argument predicts, but both are still negative. Part of the mechanism is
-   visible: `cot_extreme` correlates −0.27 with momentum, because speculators
-   *are* trend followers — fading crowded specs means fading trends. COT is
-   retired as a directional signal; the data stays as risk context.
+1. ~~Test COT per sector.~~ **Retracted.** An earlier version of this README
+   called COT "refuted" on the strength of a −0.153 Sharpe. That number came
+   from the 15-market universe, which the universe bootstrap later showed sits
+   below the 2nd percentile of possible 15-market draws. On 43 markets COT
+   scores +0.429, and survives walk-forward at +0.523 out-of-sample.
+
+   That is **not** a reinstatement. A signal whose sign is decided by which
+   markets are in the list is not established in either direction. The sector
+   pattern does not track the economic story either: rates (+0.334) is the
+   second-best sector despite having no hedgers at all, while energy (+0.056)
+   and livestock (+0.070) are the weakest despite the strongest hedger case.
+   Per-instrument Sharpe is +0.097 ± 0.248 with 27/43 positive — a distribution
+   centred near zero. The honest statement is that the effect, if any, is
+   smaller than the error in measuring it.
 2. ~~Expand the universe.~~ **Done: 15 → 43.** See finding 7 — it bought risk
    reduction and effective breadth, but no statistical power.
 3. **More years is the only thing that narrows the interval.** 16 years → 40+
