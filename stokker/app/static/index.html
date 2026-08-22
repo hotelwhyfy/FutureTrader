@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stokker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📈</text></svg>">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span>Stokker<small>futures research</small></div>
+  <div class="controls">
+    <label class="field">Signal
+      <select id="signal"></select>
+    </label>
+    <label class="field">From
+      <input type="date" id="start" value="2010-01-01">
+    </label>
+    <label class="toggle" title="3 ticks slippage and double commission">
+      <input type="checkbox" id="stressed"> Pessimistic costs
+    </label>
+    <button class="icon" id="theme" title="Toggle theme">◐</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-panel="overview">Overview</button>
+  <button class="tab" data-panel="backtest">Backtest</button>
+  <button class="tab" data-panel="positioning">Positioning</button>
+  <button class="tab" data-panel="rolls">Roll diagnostics</button>
+</div>
+
+<main>
+
+  <!-- ------------------------------------------------------- OVERVIEW -->
+  <section class="panel active" id="panel-overview">
+    <div class="row">
+      <button class="primary" id="run-state">Compute current signal</button>
+      <button id="run-sweep">Run universe backtest</button>
+      <span class="dim" id="overview-status"></span>
+    </div>
+
+    <div class="card">
+      <h2>Where the signal stands</h2>
+      <p class="sub">
+        Latest exposure per instrument. <code>Age</code> is how stale the newest price bar
+        is — a stale bar means a stale signal. COT age counts from the Friday release,
+        never the Tuesday report date.
+      </p>
+      <div id="state-out"><div class="empty">Press <strong>Compute current signal</strong> to load.</div></div>
+    </div>
+
+    <div class="card" id="sweep-card" style="display:none">
+      <h2>Universe backtest</h2>
+      <p class="sub">Every instrument vol-targeted to 15%, then equal-weighted.
+        Compare <strong>Sharpe</strong>, not CAGR — vol targeting makes CAGR a
+        function of the target, not of skill.</p>
+      <div id="sweep-out"></div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------- BACKTEST -->
+  <section class="panel" id="panel-backtest">
+    <div class="row">
+      <label class="field">Instrument <select id="bt-symbol"></select></label>
+      <button class="primary" id="run-bt">Run backtest</button>
+      <span class="dim" id="bt-status"></span>
+    </div>
+    <div id="bt-out"><div class="empty">Pick an instrument and run a backtest.</div></div>
+  </section>
+
+  <!-- ---------------------------------------------------- POSITIONING -->
+  <section class="panel" id="panel-positioning">
+    <div class="row">
+      <label class="field">Instrument <select id="cot-symbol"></select></label>
+      <button class="primary" id="run-cot">Load positioning</button>
+      <span class="dim" id="cot-status"></span>
+    </div>
+    <div class="note">
+      CFTC positions are recorded <strong>Tuesday</strong> and published the following
+      <strong>Friday 15:30 ET</strong>. Everything here aligns on the release date —
+      aligning on the report date would leak three days of hindsight into every week.
+    </div>
+    <div id="cot-out"><div class="empty">Pick an instrument to load its COT history.</div></div>
+  </section>
+
+  <!-- ---------------------------------------------------------- ROLLS -->
+  <section class="panel" id="panel-rolls">
+    <div class="row">
+      <label class="field">Instrument <select id="roll-symbol"></select></label>
+      <button class="primary" id="run-roll">Analyse rolls</button>
+      <span class="dim" id="roll-status"></span>
+    </div>
+    <div class="note">
+      Rolls come from each contract's <strong>delivery calendar</strong>, never from price.
+      An earlier statistical detector flagged the 2010 flash crash, Brexit, Volmageddon and
+      the COVID selloff as “rolls” and zeroed them — inflating ES cumulative return by
+      ~0.6 log units by deleting the left tail. Price-based roll detection cannot work:
+      adjacent equity-index contracts differ by basis points, far below daily volatility.
+    </div>
+    <div id="roll-out"><div class="empty">Pick an instrument to inspect its roll treatment.</div></div>
+  </section>
+
+  <p class="disclaimer">Research output. Not investment advice.</p>
+</main>
+
+<div class="tooltip" id="tooltip"></div>
+<script src="/app.js"></script>
+</body>
+</html>

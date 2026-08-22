@@ -1,0 +1,31 @@
+[project]
+name = "stokker"
+version = "0.1.0"
+description = "Futures trend research: free-data pipeline, honest backtester, signal engine."
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "duckdb",
+    "requests",
+    "yfinance",
+]
+
+[project.optional-dependencies]
+app = ["fastapi", "uvicorn[standard]"]
+streamlit = ["streamlit", "plotly"]  # legacy dashboard, superseded by `stokker ui`
+dev = ["pytest"]
+
+[project.scripts]
+stokker = "stokker.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["stokker*"]
