@@ -49,32 +49,66 @@ log = logging.getLogger(__name__)
 #: Delivery months per symbol, as month numbers.  Sourced from exchange contract
 #: specs; falls back to a sector default for anything unlisted.
 _DELIVERY_MONTHS: dict[str, set[int]] = {
-    "ES": {3, 6, 9, 12}, "NQ": {3, 6, 9, 12}, "RTY": {3, 6, 9, 12},
-    "ZN": {3, 6, 9, 12}, "ZB": {3, 6, 9, 12},
-    "6E": {3, 6, 9, 12}, "6J": {3, 6, 9, 12},
-    "CL": set(range(1, 13)), "NG": set(range(1, 13)),
+    # equity index + rates + fx: quarterly
+    "ES": {3, 6, 9, 12}, "NQ": {3, 6, 9, 12}, "RTY": {3, 6, 9, 12}, "YM": {3, 6, 9, 12},
+    "ZT": {3, 6, 9, 12}, "ZF": {3, 6, 9, 12}, "ZN": {3, 6, 9, 12},
+    "ZB": {3, 6, 9, 12}, "UB": {3, 6, 9, 12},
+    "6A": {3, 6, 9, 12}, "6B": {3, 6, 9, 12}, "6C": {3, 6, 9, 12}, "6E": {3, 6, 9, 12},
+    "6J": {3, 6, 9, 12}, "6M": {3, 6, 9, 12}, "6N": {3, 6, 9, 12}, "6S": {3, 6, 9, 12},
+    # energy: monthly
+    "CL": set(range(1, 13)), "BZ": set(range(1, 13)), "NG": set(range(1, 13)),
+    "RB": set(range(1, 13)), "HO": set(range(1, 13)),
+    # metals
     "GC": {2, 4, 6, 8, 10, 12}, "SI": {3, 5, 7, 9, 12}, "HG": {3, 5, 7, 9, 12},
+    "PL": {1, 4, 7, 10}, "PA": {3, 6, 9, 12},
+    # grains + oilseeds
     "ZC": {3, 5, 7, 9, 12}, "ZS": {1, 3, 5, 7, 8, 9, 11}, "ZW": {3, 5, 7, 9, 12},
+    "KE": {3, 5, 7, 9, 12}, "ZL": {1, 3, 5, 7, 8, 9, 10, 12},
+    "ZM": {1, 3, 5, 7, 8, 9, 10, 12}, "ZO": {3, 5, 7, 9, 12},
+    "ZR": {1, 3, 5, 7, 9, 11},
+    # softs
+    "KC": {3, 5, 7, 9, 12}, "CT": {3, 5, 7, 10, 12}, "CC": {3, 5, 7, 9, 12},
+    "SB": {3, 5, 7, 10}, "OJ": {1, 3, 5, 7, 9, 11},
+    # livestock -- these expire INSIDE the delivery month, unlike everything above
+    "LE": {2, 4, 6, 8, 10, 12}, "HE": {2, 4, 5, 6, 7, 8, 10, 12},
+    "GF": {1, 3, 4, 5, 8, 9, 10, 11},
 }
 
 _SECTOR_DEFAULT_MONTHS: dict[str, set[int]] = {
     "equity": {3, 6, 9, 12}, "rates": {3, 6, 9, 12}, "fx": {3, 6, 9, 12},
     "energy": set(range(1, 13)), "metals": {2, 4, 6, 8, 10, 12},
-    "ags": {3, 5, 7, 9, 12},
+    "grains": {3, 5, 7, 9, 12}, "softs": {3, 5, 7, 9, 12},
+    "livestock": {2, 4, 6, 8, 10, 12},
 }
 
 #: How each symbol's roll date is computed relative to its delivery month.
 #: See `_ROLL_RULES` for what each name means.
 _RULE_BY_SYMBOL: dict[str, str] = {
-    "ES": "third_friday", "NQ": "third_friday", "RTY": "third_friday",
-    "6E": "third_wednesday_less_2bd", "6J": "third_wednesday_less_2bd",
-    "ZN": "prior_month_last_bd", "ZB": "prior_month_last_bd",
+    "ES": "third_friday", "NQ": "third_friday", "RTY": "third_friday", "YM": "third_friday",
+    "ZT": "prior_month_last_bd", "ZF": "prior_month_last_bd", "ZN": "prior_month_last_bd",
+    "ZB": "prior_month_last_bd", "UB": "prior_month_last_bd",
+    "6A": "third_wednesday_less_2bd", "6B": "third_wednesday_less_2bd",
+    "6C": "third_wednesday_less_2bd", "6E": "third_wednesday_less_2bd",
+    "6J": "third_wednesday_less_2bd", "6M": "third_wednesday_less_2bd",
+    "6N": "third_wednesday_less_2bd", "6S": "third_wednesday_less_2bd",
     "CL": "prior_month_25th_less_3bd",
+    # Brent settles against the month TWO months ahead, unlike WTI.
+    "BZ": "two_months_prior_last_bd",
     "NG": "delivery_start_less_3bd",
+    "RB": "prior_month_last_bd", "HO": "prior_month_last_bd",
     "GC": "prior_month_3rd_last_bd", "SI": "prior_month_3rd_last_bd",
-    "HG": "prior_month_3rd_last_bd",
-    "ZC": "prior_month_last_bd", "ZS": "prior_month_last_bd",
-    "ZW": "prior_month_last_bd",
+    "HG": "prior_month_3rd_last_bd", "PL": "prior_month_3rd_last_bd",
+    "PA": "prior_month_3rd_last_bd",
+    "ZC": "prior_month_last_bd", "ZS": "prior_month_last_bd", "ZW": "prior_month_last_bd",
+    "KE": "prior_month_last_bd", "ZL": "prior_month_last_bd", "ZM": "prior_month_last_bd",
+    "ZO": "prior_month_last_bd", "ZR": "prior_month_last_bd",
+    "KC": "prior_month_last_bd", "CT": "prior_month_last_bd", "CC": "prior_month_last_bd",
+    "SB": "prior_month_last_bd", "OJ": "prior_month_last_bd",
+    # Livestock contracts trade INTO their delivery month rather than expiring
+    # before it, so the roll lands inside the month, not ahead of it.
+    "LE": "delivery_month_last_bd",
+    "HE": "delivery_month_10th_bd",
+    "GF": "delivery_month_last_thursday",
 }
 
 
@@ -105,6 +139,17 @@ def _roll_for_cycle(rule: str, year: int, month: int) -> pd.Timestamp:
     if rule == "prior_month_25th_less_3bd":
         prior = start - pd.offsets.MonthBegin(1)
         return prior.replace(day=25) - pd.offsets.BDay(3)
+    if rule == "two_months_prior_last_bd":
+        # Last business day of the month two months before delivery (Brent).
+        return (start - pd.offsets.MonthBegin(1)) - pd.offsets.BDay(1)
+    if rule == "delivery_month_last_bd":
+        return (start + pd.offsets.MonthBegin(1)) - pd.offsets.BDay(1)
+    if rule == "delivery_month_10th_bd":
+        # BDay(0) rolls forward to the first business day if the 1st is a weekend.
+        return start + pd.offsets.BDay(0) + pd.offsets.BDay(9)
+    if rule == "delivery_month_last_thursday":
+        last = start + pd.offsets.MonthEnd(0)
+        return last - pd.Timedelta(days=(last.dayofweek - 3) % 7)
     raise ValueError(f"unknown roll rule {rule!r}")
 
 

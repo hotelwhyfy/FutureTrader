@@ -63,8 +63,8 @@ An older Streamlit dashboard remains at `stokker/app/dashboard.py`
 | **Yahoo (`=F`)** | Daily OHLCV continuous front-month, 2006– | Free | Unofficial scrape; not licensed for redistribution |
 | **FRED** | Macro regime series | Free w/ key | Optional |
 
-15 instruments across equity index, rates, FX, energy, metals and ags. All 15
-CFTC contract codes are verified against live CFTC files by
+43 instruments across equity index, rates, FX, energy, metals, grains, softs
+and livestock. All 43 CFTC contract codes are verified against live CFTC files by
 `stokker verify-universe` — they are not trusted from memory.
 
 Yahoo is prototype-grade and will not survive contact with a product. That is
@@ -111,6 +111,40 @@ average ~0.11; the equal-weight portfolio gets 0.33 by cutting vol from 15% to
 
 **5. Low CAGRs are a vol-targeting artefact, not failure.** Portfolio vol is
 3–6%, so 1–2% CAGR is consistent. Compare Sharpe, then lever deliberately.
+
+**6. Nothing here is statistically distinguishable from nothing.** Block
+bootstrap (4,000 resamples, 16.6 years) puts every strategy's 95% Sharpe
+interval across zero:
+
+| Signal | Sharpe | 95% CI | P(SR > 0) |
+|---|---|---|---|
+| Buy and hold | 0.212 | [−0.27, +0.67] | 80% |
+| TS momentum | 0.296 | [−0.18, +0.75] | 87% |
+| COT extreme | −0.171 | [−0.60, +0.25] | 23% |
+
+Momentum beats buy-and-hold by +0.084 Sharpe with a CI of [−0.59, +0.73] — a
+60% chance it is genuinely better, i.e. a coin flip. Confirming that edge at
+conventional significance would take **~982 years of data**. Treat any tuning
+against these numbers as fitting noise.
+
+The one result with real evidence behind it is COT, and the evidence is
+negative: 23% probability its true Sharpe is above zero.
+
+**7. Breadth improves risk, not statistical power.** Expanding 15 → 43
+instruments roughly doubled *effective independent bets* (7.9 → 14.0, measured
+from the correlation matrix eigenvalues) and improved risk — portfolio vol
+5.4% → 4.1%, max drawdown −20.3% → −15.8%. But the Sharpe confidence interval
+did not move at all (width 0.93 → 0.94), and realised Sharpe fell 0.296 → 0.143.
+
+That is not a bug, it is the arithmetic: the standard error of a Sharpe estimate
+is ≈ √((1 + SR²/2) / T) — a function of the **length of the time series**, not
+the number of assets. More markets raise the true Sharpe of a diversified
+portfolio; only more *years* make it measurable. The realised drop is in-sample
+noise (sector Sharpes span +0.371 for equity to −0.322 for grains, all
+indistinguishable from zero at this sample size).
+
+The 43-market universe is kept regardless, because dropping markets *because
+they backtested badly* is the selection bias this project exists to avoid.
 
 ---
 
@@ -209,16 +243,22 @@ tests/                 34 tests; lookahead + roll regressions
 
 ## If you take this further
 
-1. **Test COT per sector.** The pooled negative result may be masking something
-   real in ags and energy, where hedgers genuinely hedge.
-2. **Walk-forward, not full-sample.** Every number above is in-sample over one
-   20-year path. Parameters were not tuned, which helps, but nothing here is
-   out-of-sample.
-3. **Better data before better signals.** Yahoo daily bars are the ceiling on
-   what can be learned. Databento's free tier gives real CME history to validate
-   against.
-4. **Paper-trade before screens.** Route the signal to an IBKR or Tradovate
-   paper account and compare fills against assumed costs for a few months.
+1. ~~Test COT per sector.~~ **Done, and refuted.** Physical markets
+   (−0.058) beat financials (−0.229) directionally, exactly as the hedger
+   argument predicts, but both are still negative. Part of the mechanism is
+   visible: `cot_extreme` correlates −0.27 with momentum, because speculators
+   *are* trend followers — fading crowded specs means fading trends. COT is
+   retired as a directional signal; the data stays as risk context.
+2. ~~Expand the universe.~~ **Done: 15 → 43.** See finding 7 — it bought risk
+   reduction and effective breadth, but no statistical power.
+3. **More years is the only thing that narrows the interval.** 16 years → 40+
+   via Databento/Norgate cuts CI width by only ~1.6×. Getting to ±0.15 would
+   need roughly 170 years. This is why managed futures argues from economic
+   priors and century-scale datasets, not from decade-scale backtests.
+4. **Walk-forward harness.** Nothing here is out-of-sample. There is currently
+   no mechanism to detect overfitting.
+5. **Paper-trade before screens.** Route signals to an IBKR or Tradovate paper
+   account and compare real fills against assumed costs.
 
 Publishing signals to others for money can trigger investment-adviser rules
 (SEC/state RIA). Personal research use is unaffected.
