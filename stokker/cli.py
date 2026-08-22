@@ -9,6 +9,7 @@
     stokker sweep --signal tsmom
     stokker state                    current signal across the universe
     stokker walkforward              out-of-sample parameter evaluation
+    stokker risk --positions ES:2    portfolio risk decomposition
 """
 
 from __future__ import annotations
@@ -225,6 +226,112 @@ def cmd_walkforward(args) -> int:
     return 0
 
 
+def cmd_risk(args) -> int:
+    """Decompose the risk of a book."""
+    import numpy as np
+
+    from stokker import research
+    from stokker.backtest.engine import vol_target_size
+    from stokker.risk import stress
+    from stokker.risk.portfolio import Position, analyse, parse_positions, size_to_vol_target
+
+    if not args.positions and not args.from_signal:
+        print("supply --positions 'ES:2,CL:-1' or --from-signal tsmom", file=sys.stderr)
+        return 1
+
+    # Load once; both the position source and the risk model need returns.
+    wanted = symbols()
+    datasets = {}
+    for sym in wanted:
+        try:
+            datasets[sym] = research.load(sym, with_cot=bool(args.from_signal), start=args.start)
+        except Exception:  # noqa: BLE001
+            pass
+
+    prices = {s: float(d.price.iloc[-1]) for s, d in datasets.items()}
+    returns = {s: d.returns for s, d in datasets.items()}
+
+    if args.positions:
+        positions = parse_positions(args.positions)
+        missing = [p.symbol for p in positions if p.symbol not in prices]
+        if missing:
+            print(f"no price data for: {', '.join(missing)}", file=sys.stderr)
+            return 1
+    else:
+        # Reconstruct what the systematic book would hold today.
+        #
+        # `vol_target_size` scales each instrument to `target_vol` ON ITS OWN;
+        # the backtest engine then equal-weights across the book. Applying the
+        # per-instrument size to all 43 at once would be ~43x the intended
+        # exposure -- a mistake the stress replay caught by reporting a -100%
+        # GFC loss on a book nominally targeting 15% vol.
+        sig_obj = SIGNALS[args.from_signal]()
+        raw = []
+        for sym, d in datasets.items():
+            sig = sig_obj.generate(d.bars, d.returns, d.inst, d.cot)
+            size = vol_target_size(d.returns, target_vol=args.target_vol)
+            w = float(sig.iloc[-1]) * float(size.iloc[-1])
+            if abs(w) < 1e-6:
+                continue
+            raw.append((sym, w, d.inst.point_value))
+        if not raw:
+            print("signal is flat everywhere; no book to analyse", file=sys.stderr)
+            return 1
+
+        n_active = len(raw)
+        positions = [
+            Position(sym, (w / n_active) * args.equity / (prices[sym] * pv))
+            for sym, w, pv in raw
+        ]
+
+        # Equal-weighting leaves realised portfolio vol well below target,
+        # because diversification cuts it by roughly sqrt(effective bets).
+        # Rescale so `--target-vol` means what it says: portfolio volatility.
+        probe = analyse(positions, prices, returns, equity=args.equity,
+                        halflife=args.halflife, shrinkage=args.shrinkage)
+        if probe.portfolio_vol > 0:
+            k = args.target_vol / probe.portfolio_vol
+            positions = [Position(p.symbol, p.contracts * k) for p in positions]
+
+    rep = analyse(positions, prices, returns, equity=args.equity,
+                  halflife=args.halflife, shrinkage=args.shrinkage)
+
+    print(f"\nequity ${rep.equity:,.0f}   {len(rep.positions)} positions   "
+          f"{rep.history_days} days of history\n")
+    print(f"  portfolio vol      {rep.portfolio_vol:>8.1%}  (${rep.portfolio_vol_usd:,.0f}/yr)")
+    print(f"  effective bets     {rep.effective_bets:>8.2f}  of {len(rep.positions)} positions")
+    print(f"  risk concentration {rep.risk_concentration:>8.2f}")
+    print(f"  diversification    {rep.diversification_ratio:>8.2f}x")
+    print(f"  gross / net lev    {rep.gross_leverage:>8.2f}x / {rep.net_leverage:.2f}x")
+    print(f"\n  1-day VaR 95%      {rep.var_95:>8.2%}  (${rep.var_95*rep.equity:,.0f})")
+    print(f"  1-day VaR 99%      {rep.var_99:>8.2%}  (${rep.var_99*rep.equity:,.0f})")
+    print(f"  1-day CVaR 95%     {rep.cvar_95:>8.2%}  (${rep.cvar_95*rep.equity:,.0f})")
+    print(f"  worst day / month  {rep.worst_day:>8.2%} / {rep.worst_month:.2%}")
+
+    warn = rep.concentration_warnings()
+    if warn:
+        print("\n  warnings:")
+        for w in warn:
+            print(f"    - {w}")
+
+    print("\nRisk decomposition:")
+    cols = ["contracts", "sector", "notional", "weight", "vol_standalone",
+            "risk_contribution_pct"]
+    _show(rep.positions[cols].head(args.top))
+
+    if args.target_vol_scale:
+        print(f"\nScaled to {args.target_vol_scale:.0%} portfolio vol:")
+        _show(size_to_vol_target(rep, args.target_vol_scale).head(args.top))
+
+    if args.stress:
+        print("\nHistorical stress replay (positions held fixed):")
+        out = stress.replay(rep, returns)
+        _show(out[["scenario", "days", "pnl_pct", "pnl_usd", "max_drawdown", "coverage"]])
+        print("\nWorst 21-day windows for this book:")
+        _show(stress.worst_windows(rep, returns, window=21, top=5))
+    return 0
+
+
 def cmd_ui(args) -> int:
     """Serve the web UI."""
     import uvicorn
@@ -243,6 +350,21 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("verify-universe").set_defaults(fn=cmd_verify_universe)
+
+    s = sub.add_parser("risk", help="portfolio risk decomposition")
+    s.add_argument("--positions", help='e.g. "ES:2,CL:-1,GC:3"')
+    s.add_argument("--from-signal", choices=sorted(SIGNALS),
+                   help="analyse what the systematic book would hold today")
+    s.add_argument("--equity", type=float, default=100_000.0)
+    s.add_argument("--target-vol", type=float, default=0.15,
+                   help="vol target used when sizing --from-signal")
+    s.add_argument("--target-vol-scale", type=float,
+                   help="also show the book rescaled to this portfolio vol")
+    s.add_argument("--halflife", type=int, default=126)
+    s.add_argument("--shrinkage", type=float, default=0.2)
+    s.add_argument("--stress", action="store_true", help="replay historical crises")
+    s.add_argument("--top", type=int, default=20)
+    s.set_defaults(fn=cmd_risk)
 
     s = sub.add_parser("walkforward", help="out-of-sample parameter evaluation")
     s.add_argument("--symbols")

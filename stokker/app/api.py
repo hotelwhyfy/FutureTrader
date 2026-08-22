@@ -313,6 +313,94 @@ def api_walkforward(signal: str = "tsmom", start: str = "2006-01-01",
     }
 
 
+# ------------------------------------------------------------------- risk
+@app.get("/api/risk")
+def api_risk(positions: str | None = Query(None), from_signal: str | None = Query(None),
+             equity: float = 250_000.0, target_vol: float = 0.15,
+             halflife: int = 126, shrinkage: float = 0.2, start: str = "2006-01-01"):
+    from stokker.backtest.engine import vol_target_size
+    from stokker.risk import stress as stress_mod
+    from stokker.risk.portfolio import Position, analyse, parse_positions
+
+    if not positions and not from_signal:
+        raise HTTPException(400, "supply positions or from_signal")
+
+    datasets = {}
+    for sym in symbols():
+        try:
+            datasets[sym] = research.load(sym, with_cot=bool(from_signal), start=start)
+        except Exception:  # noqa: BLE001
+            pass
+    if not datasets:
+        raise HTTPException(500, "no market data available")
+
+    prices = {s: float(d.price.iloc[-1]) for s, d in datasets.items()}
+    returns = {s: d.returns for s, d in datasets.items()}
+
+    if positions:
+        try:
+            book = parse_positions(positions)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        unknown = [p.symbol for p in book if p.symbol not in prices]
+        if unknown:
+            raise HTTPException(400, f"no data for: {', '.join(unknown)}")
+    else:
+        sig = _signal(from_signal)
+        raw = []
+        for sym, d in datasets.items():
+            sg = sig.generate(d.bars, d.returns, d.inst, d.cot)
+            sz = vol_target_size(d.returns, target_vol=target_vol)
+            w = float(sg.iloc[-1]) * float(sz.iloc[-1])
+            if abs(w) > 1e-6:
+                raw.append((sym, w, d.inst.point_value))
+        if not raw:
+            raise HTTPException(400, "signal is flat everywhere")
+        n = len(raw)
+        book = [Position(s, (w / n) * equity / (prices[s] * pv)) for s, w, pv in raw]
+        probe = analyse(book, prices, returns, equity=equity,
+                        halflife=halflife, shrinkage=shrinkage)
+        if probe.portfolio_vol > 0:
+            k = target_vol / probe.portfolio_vol
+            book = [Position(p.symbol, p.contracts * k) for p in book]
+
+    try:
+        rep = analyse(book, prices, returns, equity=equity,
+                      halflife=halflife, shrinkage=shrinkage)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    det = rep.positions
+    sector = det.groupby("sector")["risk_contribution_pct"].sum().sort_values(ascending=False)
+    sc = stress_mod.replay(rep, returns)
+    worst = stress_mod.worst_windows(rep, returns, window=21, top=5)
+
+    return {
+        "summary": {k: _clean(v) for k, v in rep.summary().items()},
+        "warnings": rep.concentration_warnings(),
+        "history_days": rep.history_days,
+        "dropped": rep.dropped,
+        "positions": [
+            {"symbol": i, **{c: _clean(row[c]) for c in det.columns}}
+            for i, row in det.iterrows()
+        ],
+        "sector_risk": [{"sector": k, "pct": _clean(v)} for k, v in sector.items()],
+        "stress": [
+            {"key": i, "scenario": row["scenario"], "pnl_pct": _clean(row["pnl_pct"]),
+             "pnl_usd": _clean(row["pnl_usd"]), "max_drawdown": _clean(row["max_drawdown"]),
+             "coverage": _clean(row["coverage"]), "days": _clean(row["days"]),
+             "note": row["note"]}
+            for i, row in sc.iterrows()
+        ],
+        "worst_windows": [
+            {"window_end": i.strftime("%Y-%m-%d"),
+             "window_start": pd.Timestamp(row["window_start"]).strftime("%Y-%m-%d"),
+             "loss_pct": _clean(row["loss_pct"]), "loss_usd": _clean(row["loss_usd"])}
+            for i, row in worst.iterrows()
+        ],
+    }
+
+
 # ------------------------------------------------------------------ static
 @app.get("/")
 def index():

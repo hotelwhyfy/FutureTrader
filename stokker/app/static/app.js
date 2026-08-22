@@ -17,6 +17,13 @@ const fmt = {
   x:     v => isNum(v) ? v.toFixed(2) + "×" : "–",
   // Futures prices span 0.0067 (JPY) to 29,374 (NQ); fixed precision breaks at
   // both ends, so scale decimals to magnitude.
+  usd: v => {
+    if (!isNum(v)) return "–";
+    const a = Math.abs(v), sign = v < 0 ? "−" : "";
+    if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(2)}M`;
+    if (a >= 1e3) return `${sign}$${(a / 1e3).toFixed(1)}k`;
+    return `${sign}$${a.toFixed(0)}`;
+  },
   price: v => {
     if (!isNum(v)) return "–";
     const a = Math.abs(v);
@@ -502,6 +509,91 @@ async function loadRolls() {
   } catch (e) { fail(out, e); }
 }
 
+/* ================================================================ RISK === */
+async function loadRisk() {
+  const out = $("#risk-out"), status = $("#risk-status");
+  const sig = $("#risk-signal").value, pos = $("#risk-positions").value.trim();
+  if (!sig && !pos) return fail(out, "Enter a book like ES:2, CL:-1 — or pick a signal.");
+  busy(out, sig ? "Sizing the systematic book and estimating risk…" : "Estimating risk…");
+  status.textContent = "";
+  try {
+    const d = await api("risk", {
+      positions: sig ? "" : pos.replace(/\s+/g, ""), from_signal: sig,
+      equity: $("#risk-equity").value.replace(/[^0-9.]/g, ""),
+      target_vol: $("#risk-target").value, start: $("#start").value,
+    });
+    const s = d.summary;
+    const nPos = d.positions.length;
+
+    out.innerHTML = `<div class="metrics">
+      <div class="metric"><div class="k">Portfolio vol</div><div class="v">${fmt.pct(s.portfolio_vol)}</div>
+        <div class="d">${fmt.usd(s.portfolio_vol_usd)}/yr</div></div>
+      <div class="metric"><div class="k">Effective bets</div><div class="v ${s.effective_bets < nPos/2 ? "neg" : ""}">${fmt.num(s.effective_bets, 1)}</div>
+        <div class="d">of ${nPos} positions</div></div>
+      <div class="metric"><div class="k">Diversification</div><div class="v">${fmt.num(s.diversification_ratio)}×</div></div>
+      <div class="metric"><div class="k">Gross leverage</div><div class="v">${fmt.num(s.gross_leverage)}×</div>
+        <div class="d">net ${fmt.num(s.net_leverage)}×</div></div>
+      <div class="metric"><div class="k">1-day VaR 95%</div><div class="v neg">${fmt.pct(s.var_95_1d, 2)}</div>
+        <div class="d">${fmt.usd(s.var_95_1d * s.equity)}</div></div>
+      <div class="metric"><div class="k">Worst day</div><div class="v neg">${fmt.pct(s.worst_day, 2)}</div>
+        <div class="d">worst month ${fmt.pct(s.worst_month, 1)}</div></div>
+    </div>
+    ${d.warnings.length ? `<div class="note"><strong>Flags.</strong><ul style="margin:6px 0 0 18px">
+      ${d.warnings.map(w => `<li>${w}</li>`).join("")}</ul></div>` : ""}
+    <div class="grid cols-2">
+      <div class="card"><h2>Risk by sector</h2>
+        <p class="sub">Share of total portfolio risk, not notional. Correlated legs stack up here.</p>
+        <div id="risk-sector"></div></div>
+      <div class="card"><h2>Historical stress</h2>
+        <p class="sub">This exact book replayed through real crises, positions held fixed.${
+          d.stress.filter(r => !isNum(r.pnl_pct)).length
+            ? ` <strong>Not covered by your date range:</strong> ${
+                d.stress.filter(r => !isNum(r.pnl_pct)).map(r => r.scenario).join(", ")
+              } — set <em>From</em> to 2006-01-01 to include them.`
+            : ""}</p>
+        <div id="risk-stress"></div></div>
+    </div>
+    <div class="card"><h2>Risk decomposition</h2>
+      <p class="sub">Marginal contributions sum to portfolio volatility. A position can be
+      small in notional and large in risk.</p>
+      <div id="risk-table"></div></div>
+    <div class="card"><h2>Worst 21-day windows</h2>
+      <p class="sub">This book's own worst stretches, which are not always the famous ones.</p>
+      <div id="risk-worst"></div></div>`;
+
+    barChart($("#risk-sector"), {
+      labels: d.sector_risk.map(r => r.sector.slice(0, 6)),
+      values: d.sector_risk.map(r => r.pct), height: 200,
+      yFormat: v => fmt.pct(v, 0),
+    });
+    const st = d.stress.filter(r => isNum(r.pnl_pct));
+    barChart($("#risk-stress"), {
+      labels: st.map(r => r.key.slice(0, 7)),
+      values: st.map(r => r.pnl_pct), height: 200, yFormat: v => fmt.pct(v, 0),
+    });
+
+    table($("#risk-table"), [
+      { key: "symbol", label: "Symbol", fmt: r => r.symbol, cls: () => "sym" },
+      { key: "sector", label: "Sector", fmt: r => `<span class="badge sector">${r.sector}</span>`, cls: () => "name" },
+      { key: "contracts", label: "Contracts", fmt: r => fmt.num(r.contracts, 2), cls: r => cls(r.contracts) },
+      { key: "notional", label: "Notional", fmt: r => fmt.usd(r.notional), cls: r => cls(r.notional) },
+      { key: "weight", label: "Weight", fmt: r => fmt.pct(r.weight, 1), cls: r => cls(r.weight) },
+      { key: "vol_standalone", label: "Own vol", fmt: r => fmt.pct(r.vol_standalone, 1) },
+      { key: "risk_contribution_pct", label: "Risk share", fmt: r => fmt.pct(r.risk_contribution_pct, 1),
+        cls: r => r.risk_contribution_pct < 0 ? "pos" : "" },
+    ], d.positions);
+
+    table($("#risk-worst"), [
+      { key: "window_start", label: "From", fmt: r => r.window_start, cls: () => "name" },
+      { key: "window_end", label: "To", fmt: r => r.window_end, cls: () => "name" },
+      { key: "loss_pct", label: "Loss", fmt: r => fmt.pct(r.loss_pct, 1), cls: () => "neg" },
+      { key: "loss_usd", label: "USD", fmt: r => fmt.usd(r.loss_usd), cls: () => "neg" },
+    ], d.worst_windows);
+
+    status.textContent = `${nPos} positions · ${d.history_days} days of history`;
+  } catch (e) { fail(out, e); }
+}
+
 /* ========================================================= WALK-FORWARD === */
 async function loadWalkforward() {
   const out = $("#wf-out"), status = $("#wf-status");
@@ -588,6 +680,16 @@ async function init() {
   $("#run-cot").onclick   = loadCot;
   $("#run-roll").onclick  = loadRolls;
   $("#run-wf").onclick    = loadWalkforward;
+  $("#run-risk").onclick  = loadRisk;
+  $("#risk-signal").innerHTML = '<option value="">— manual —</option>' +
+    sigs.signals.filter(x => x.key !== "hold")
+      .map(x => `<option value="${x.key}">${x.label}</option>`).join("");
+  // Picking a signal sizes the book automatically, so the manual field is moot.
+  $("#risk-signal").onchange = () => {
+    const on = !!$("#risk-signal").value;
+    $("#risk-positions").disabled = on;
+    $("#risk-positions").style.opacity = on ? 0.4 : 1;
+  };
 
   const root = document.documentElement;
   const saved = (() => { try { return localStorage.getItem("stokker-theme"); } catch { return null; } })();

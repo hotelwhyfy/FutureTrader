@@ -32,6 +32,7 @@
   <button class="tab active" data-panel="overview">Overview</button>
   <button class="tab" data-panel="backtest">Backtest</button>
   <button class="tab" data-panel="positioning">Positioning</button>
+  <button class="tab" data-panel="risk">Risk</button>
   <button class="tab" data-panel="walkforward">Walk-forward</button>
   <button class="tab" data-panel="rolls">Roll diagnostics</button>
 </div>
@@ -88,6 +89,30 @@
       aligning on the report date would leak three days of hindsight into every week.
     </div>
     <div id="cot-out"><div class="empty">Pick an instrument to load its COT history.</div></div>
+  </section>
+
+  <!-- ------------------------------------------------------------ RISK -->
+  <section class="panel" id="panel-risk">
+    <div class="row">
+      <label class="field">Book
+        <input type="text" id="risk-positions" placeholder="ES:2, CL:-1, GC:3" size="26">
+      </label>
+      <label class="field">or <select id="risk-signal">
+        <option value="">— manual —</option></select></label>
+      <label class="field">Equity $<input type="text" id="risk-equity" value="250000" size="9"></label>
+      <label class="field">Target vol <select id="risk-target">
+        <option value="0.10">10%</option><option value="0.15" selected>15%</option>
+        <option value="0.20">20%</option></select></label>
+      <button class="primary" id="run-risk">Analyse risk</button>
+      <span class="dim" id="risk-status"></span>
+    </div>
+    <div class="note">
+      Built on correlations and volatilities, which persist across this history at
+      0.84 and 0.88 — against 0.50 for Sharpe, which flips sign on 17 of 43 markets.
+      Estimating a covariance needs far less data than estimating a mean, so this is
+      the part of the data that will actually hold up.
+    </div>
+    <div id="risk-out"><div class="empty">Enter a book, or pick a signal to size one automatically.</div></div>
   </section>
 
   <!-- --------------------------------------------------- WALK-FORWARD -->
