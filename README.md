@@ -1,4 +1,4 @@
-# Stokker
+# Read Me
 
 Futures trend research on free data. Built to answer one question honestly:
 **is there a signal here worth trading?**
