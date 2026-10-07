@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from stokker.config import get
-from stokker.contracts import roll
+from futurestrader.config import get
+from futurestrader.contracts import roll
 
 
 def _bars(n=800, seed=1, start="2018-01-01"):

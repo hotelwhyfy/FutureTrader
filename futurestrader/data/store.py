@@ -13,7 +13,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-from stokker.config import CACHE_DIR, DB_PATH
+from futurestrader.config import CACHE_DIR, DB_PATH
 
 log = logging.getLogger(__name__)
 

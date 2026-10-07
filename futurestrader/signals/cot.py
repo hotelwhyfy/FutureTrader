@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from stokker.data.providers import cot as cot_data
-from stokker.signals.base import Signal
+from futurestrader.data.providers import cot as cot_data
+from futurestrader.signals.base import Signal
 
 TRADING_DAYS = 252
 

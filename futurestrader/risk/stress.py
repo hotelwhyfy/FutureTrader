@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from stokker.risk.portfolio import RiskReport
+from futurestrader.risk.portfolio import RiskReport
 
 
 @dataclass(frozen=True)

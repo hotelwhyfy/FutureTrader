@@ -25,8 +25,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from stokker.config import Instrument, get
-from stokker.risk import covariance as cov_mod
+from futurestrader.config import Instrument, get
+from futurestrader.risk import covariance as cov_mod
 
 TRADING_DAYS = 252
 

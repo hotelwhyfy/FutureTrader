@@ -13,7 +13,7 @@ import os
 import pandas as pd
 import requests
 
-from stokker.data.store import STORE
+from futurestrader.data.store import STORE
 
 log = logging.getLogger(__name__)
 

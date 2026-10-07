@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from stokker.backtest import engine
-from stokker.backtest.costs import CostModel
-from stokker.config import get
-from stokker.data.providers import cot as cot_data
+from futurestrader.backtest import engine
+from futurestrader.backtest.costs import CostModel
+from futurestrader.config import get
+from futurestrader.data.providers import cot as cot_data
 
 ES = get("ES")
 FREE = CostModel(slippage_ticks=0.0, commission_mult=0.0)

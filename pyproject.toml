@@ -1,5 +1,5 @@
 [project]
-name = "stokker"
+name = "futurestrader"
 version = "0.1.0"
 description = "Futures trend research: free-data pipeline, honest backtester, signal engine."
 requires-python = ">=3.11"
@@ -14,11 +14,11 @@ dependencies = [
 
 [project.optional-dependencies]
 app = ["fastapi", "uvicorn[standard]"]
-streamlit = ["streamlit", "plotly"]  # legacy dashboard, superseded by `stokker ui`
+streamlit = ["streamlit", "plotly"]  # legacy dashboard, superseded by `futurestrader ui`
 dev = ["pytest"]
 
 [project.scripts]
-stokker = "stokker.cli:main"
+futurestrader = "futurestrader.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -28,4 +28,4 @@ build-backend = "setuptools.build_meta"
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["stokker*"]
+include = ["futurestrader*"]

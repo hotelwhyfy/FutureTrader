@@ -23,8 +23,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from stokker.backtest.costs import DEFAULT, CostModel
-from stokker.config import Instrument
+from futurestrader.backtest.costs import DEFAULT, CostModel
+from futurestrader.config import Instrument
 
 TRADING_DAYS = 252
 

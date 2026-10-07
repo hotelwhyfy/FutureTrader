@@ -1,11 +1,11 @@
 """JSON API over the research layer.
 
-Every endpoint delegates to `stokker.research`, so the UI cannot disagree with
+Every endpoint delegates to `futurestrader.research`, so the UI cannot disagree with
 the CLI or the tests.  No research logic lives here -- this file only shapes
 results for transport.
 
-Run with `stokker ui`, or directly:
-    uvicorn stokker.app.api:app --reload
+Run with `futurestrader ui`, or directly:
+    uvicorn futurestrader.app.api:app --reload
 """
 
 from __future__ import annotations
@@ -19,18 +19,18 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from stokker import research
-from stokker.backtest.costs import DEFAULT, STRESSED
-from stokker.config import UNIVERSE, get, symbols
-from stokker.contracts import roll as roll_mod
-from stokker.signals.base import Blend, Constant
-from stokker.signals.cot import CommercialFlow, CotExtreme
-from stokker.signals.momentum import EWMACrossover, TimeSeriesMomentum
+from futurestrader import research
+from futurestrader.backtest.costs import DEFAULT, STRESSED
+from futurestrader.config import UNIVERSE, get, symbols
+from futurestrader.contracts import roll as roll_mod
+from futurestrader.signals.base import Blend, Constant
+from futurestrader.signals.cot import CommercialFlow, CotExtreme
+from futurestrader.signals.momentum import EWMACrossover, TimeSeriesMomentum
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 
-app = FastAPI(title="Stokker", docs_url="/api/docs")
+app = FastAPI(title="FuturesTrader", docs_url="/api/docs")
 
 SIGNALS = {
     "tsmom": ("Time-series momentum", lambda: TimeSeriesMomentum()),
@@ -259,7 +259,7 @@ def api_walkforward(signal: str = "tsmom", start: str = "2006-01-01",
                     train: float = 5.0, test: float = 1.0,
                     anchored: bool = False, stressed: bool = False,
                     syms: str | None = Query(None)):
-    from stokker.backtest.walkforward import WalkForward
+    from futurestrader.backtest.walkforward import WalkForward
 
     if signal not in WF_GRIDS:
         raise HTTPException(400, f"no grid for {signal!r}")
@@ -318,9 +318,9 @@ def api_walkforward(signal: str = "tsmom", start: str = "2006-01-01",
 def api_risk(positions: str | None = Query(None), from_signal: str | None = Query(None),
              equity: float = 250_000.0, target_vol: float = 0.15,
              halflife: int = 126, shrinkage: float = 0.2, start: str = "2006-01-01"):
-    from stokker.backtest.engine import vol_target_size
-    from stokker.risk import stress as stress_mod
-    from stokker.risk.portfolio import Position, analyse, parse_positions
+    from futurestrader.backtest.engine import vol_target_size
+    from futurestrader.risk import stress as stress_mod
+    from futurestrader.risk.portfolio import Position, analyse, parse_positions
 
     if not positions and not from_signal:
         raise HTTPException(400, "supply positions or from_signal")

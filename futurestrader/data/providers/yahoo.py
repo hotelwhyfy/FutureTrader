@@ -7,7 +7,7 @@ ships to other people.  That is exactly why `PriceProvider` exists.
 
 The `=F` tickers are *continuous front-month* series that Yahoo splices at
 expiry WITHOUT back-adjusting, so roll dates show up as price gaps that are not
-returns.  `stokker.contracts.roll` deals with that -- do not compute returns off
+returns.  `futurestrader.contracts.roll` deals with that -- do not compute returns off
 this data directly.
 """
 
@@ -17,9 +17,9 @@ import logging
 
 import pandas as pd
 
-from stokker.config import Instrument, get
-from stokker.data.providers.base import validate_bars
-from stokker.data.store import STORE
+from futurestrader.config import Instrument, get
+from futurestrader.data.providers.base import validate_bars
+from futurestrader.data.store import STORE
 
 log = logging.getLogger(__name__)
 

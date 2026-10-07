@@ -1,15 +1,15 @@
 """Command line entry point.
 
-    stokker ui                       serve the web UI at localhost:8000
-    stokker verify-universe          check every CFTC code resolves
-    stokker search-cot corn          find a contract code by name
-    stokker fetch [--symbols ES,CL]  populate the local cache
-    stokker rolls ES                 inspect detected roll gaps
-    stokker backtest ES --signal tsmom
-    stokker sweep --signal tsmom
-    stokker state                    current signal across the universe
-    stokker walkforward              out-of-sample parameter evaluation
-    stokker risk --positions ES:2    portfolio risk decomposition
+    futurestrader ui                       serve the web UI at localhost:8000
+    futurestrader verify-universe          check every CFTC code resolves
+    futurestrader search-cot corn          find a contract code by name
+    futurestrader fetch [--symbols ES,CL]  populate the local cache
+    futurestrader rolls ES                 inspect detected roll gaps
+    futurestrader backtest ES --signal tsmom
+    futurestrader sweep --signal tsmom
+    futurestrader state                    current signal across the universe
+    futurestrader walkforward              out-of-sample parameter evaluation
+    futurestrader risk --positions ES:2    portfolio risk decomposition
 """
 
 from __future__ import annotations
@@ -20,13 +20,13 @@ import sys
 
 import pandas as pd
 
-from stokker.backtest.costs import DEFAULT, STRESSED
-from stokker.config import UNIVERSE, get, symbols
-from stokker.contracts import roll as roll_mod
-from stokker.data.providers import cot as cot_data
-from stokker.signals.base import Blend, Constant
-from stokker.signals.cot import CommercialFlow, CotExtreme
-from stokker.signals.momentum import EWMACrossover, TimeSeriesMomentum, VolRegimeFilter
+from futurestrader.backtest.costs import DEFAULT, STRESSED
+from futurestrader.config import UNIVERSE, get, symbols
+from futurestrader.contracts import roll as roll_mod
+from futurestrader.data.providers import cot as cot_data
+from futurestrader.signals.base import Blend, Constant
+from futurestrader.signals.cot import CommercialFlow, CotExtreme
+from futurestrader.signals.momentum import EWMACrossover, TimeSeriesMomentum, VolRegimeFilter
 
 SIGNALS = {
     "tsmom": lambda: TimeSeriesMomentum(),
@@ -77,7 +77,7 @@ def cmd_search_cot(args) -> int:
 
 
 def cmd_fetch(args) -> int:
-    from stokker import research
+    from futurestrader import research
 
     syms = args.symbols.split(",") if args.symbols else symbols()
     for sym in syms:
@@ -90,7 +90,7 @@ def cmd_fetch(args) -> int:
 
 
 def cmd_rolls(args) -> int:
-    from stokker import research
+    from futurestrader import research
 
     ds = research.load(args.symbol, with_cot=False, start=args.start)
     impact = roll_mod.impact_report(ds.bars, ds.inst)
@@ -114,7 +114,7 @@ def cmd_rolls(args) -> int:
 
 
 def cmd_backtest(args) -> int:
-    from stokker import research
+    from futurestrader import research
 
     ds = research.load(args.symbol, start=args.start)
     sig = SIGNALS[args.signal]()
@@ -126,7 +126,7 @@ def cmd_backtest(args) -> int:
 
 
 def cmd_sweep(args) -> int:
-    from stokker import research
+    from futurestrader import research
 
     sig = SIGNALS[args.signal]()
     costs = STRESSED if args.stressed else DEFAULT
@@ -139,7 +139,7 @@ def cmd_sweep(args) -> int:
 
 
 def cmd_state(args) -> int:
-    from stokker import research
+    from futurestrader import research
 
     sig = SIGNALS[args.signal]()
     rows = []
@@ -173,8 +173,8 @@ WF_CLASSES = {
 
 def cmd_walkforward(args) -> int:
     """Out-of-sample evaluation with train-only parameter selection."""
-    from stokker import research
-    from stokker.backtest.walkforward import WalkForward
+    from futurestrader import research
+    from futurestrader.backtest.walkforward import WalkForward
 
     if args.signal not in WF_GRIDS:
         print(f"no grid defined for {args.signal!r}; "
@@ -230,10 +230,10 @@ def cmd_risk(args) -> int:
     """Decompose the risk of a book."""
     import numpy as np
 
-    from stokker import research
-    from stokker.backtest.engine import vol_target_size
-    from stokker.risk import stress
-    from stokker.risk.portfolio import Position, analyse, parse_positions, size_to_vol_target
+    from futurestrader import research
+    from futurestrader.backtest.engine import vol_target_size
+    from futurestrader.risk import stress
+    from futurestrader.risk.portfolio import Position, analyse, parse_positions, size_to_vol_target
 
     if not args.positions and not args.from_signal:
         print("supply --positions 'ES:2,CL:-1' or --from-signal tsmom", file=sys.stderr)
@@ -336,14 +336,14 @@ def cmd_ui(args) -> int:
     """Serve the web UI."""
     import uvicorn
 
-    print(f"\n  Stokker UI  ->  http://{args.host}:{args.port}\n")
-    uvicorn.run("stokker.app.api:app", host=args.host, port=args.port,
+    print(f"\n  FuturesTrader UI  ->  http://{args.host}:{args.port}\n")
+    uvicorn.run("futurestrader.app.api:app", host=args.host, port=args.port,
                 reload=args.reload, log_level="warning")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="stokker", description=__doc__,
+    p = argparse.ArgumentParser(prog="futurestrader", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("-v", "--verbose", action="store_true")
     p.add_argument("--start", default="2006-01-01")

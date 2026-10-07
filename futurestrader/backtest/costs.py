@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from stokker.config import Instrument
+from futurestrader.config import Instrument
 
 
 @dataclass(frozen=True)

@@ -16,17 +16,17 @@ exists so that claim can be checked, contradicted, and improved.
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[app,dev]"
 
-.venv/bin/stokker verify-universe          # confirm CFTC codes resolve
-.venv/bin/stokker fetch                    # populate the cache (~2 min)
-.venv/bin/stokker ui                       # web UI at localhost:8000
+.venv/bin/futurestrader verify-universe          # confirm CFTC codes resolve
+.venv/bin/futurestrader fetch                    # populate the cache (~2 min)
+.venv/bin/futurestrader ui                       # web UI at localhost:8000
 ```
 
 Or stay in the terminal:
 
 ```bash
-.venv/bin/stokker sweep --signal tsmom     # backtest the universe
-.venv/bin/stokker state                    # what the signal says today
-.venv/bin/stokker rolls CL --validate      # roll calendar diagnostics
+.venv/bin/futurestrader sweep --signal tsmom     # backtest the universe
+.venv/bin/futurestrader state                    # what the signal says today
+.venv/bin/futurestrader rolls CL --validate      # roll calendar diagnostics
 ```
 
 Optional: put a free [FRED key](https://fredaccount.stlouisfed.org/apikeys) in
@@ -36,7 +36,7 @@ Optional: put a free [FRED key](https://fredaccount.stlouisfed.org/apikeys) in
 
 ## Web UI
 
-`stokker ui` serves a FastAPI backend plus a dependency-free frontend at
+`futurestrader ui` serves a FastAPI backend plus a dependency-free frontend at
 `localhost:8000`. Five tabs:
 
 - **Overview** — current signal per instrument, with bar/COT staleness, plus the
@@ -46,12 +46,12 @@ Optional: put a free [FRED key](https://fredaccount.stlouisfed.org/apikeys) in
 - **Walk-forward** — out-of-sample curve vs never-tuned baseline, per-fold selections
 - **Roll diagnostics** — impact metrics and the calendar validation test
 
-Every endpoint delegates to `stokker.research`, so the UI cannot disagree with
+Every endpoint delegates to `futurestrader.research`, so the UI cannot disagree with
 the CLI or the tests — `/api/backtest?symbol=ES&signal=tsmom` returns the same
 0.346 Sharpe the CLI prints. Charts are hand-drawn SVG (no CDN, works offline),
 and the page is dark-first with a light theme.
 
-An older Streamlit dashboard remains at `stokker/app/dashboard.py`
+An older Streamlit dashboard remains at `futurestrader/app/dashboard.py`
 (`pip install -e ".[streamlit]"`), superseded by the above.
 
 ---
@@ -66,7 +66,7 @@ An older Streamlit dashboard remains at `stokker/app/dashboard.py`
 
 43 instruments across equity index, rates, FX, energy, metals, grains, softs
 and livestock. All 43 CFTC contract codes are verified against live CFTC files by
-`stokker verify-universe` — they are not trusted from memory.
+`futurestrader verify-universe` — they are not trusted from memory.
 
 Yahoo is prototype-grade and will not survive contact with a product. That is
 why `data/providers/base.py` defines a `PriceProvider` protocol: swapping in
@@ -180,7 +180,7 @@ Roll treatment is not a rounding error. Measured effect on cumulative log return
 For crude, ignoring rolls is the difference between "+150%" and "−16%" over 20
 years. That gap is the roll yield, and it is why front-month commodity ETFs bleed.
 
-`stokker rolls CL --validate` shifts the calendar ±5 bars and measures the gap
+`futurestrader rolls CL --validate` shifts the calendar ±5 bars and measures the gap
 signature at each. It peaks cleanly at offset 0 for CL, ZC and ZS — the markets
 whose storage costs make basis large. For equity/rates/FX the per-roll basis is
 ~0.2%, at the level of daily noise, so the argmax wanders; there the check is
@@ -219,7 +219,7 @@ genuine CFTC typo (`Swap__Positions_Short_All`, doubled underscore).
 
 ## Two ways to overfit, and the harness for each
 
-**In time** — `stokker walkforward`. Parameters are chosen using only each
+**In time** — `futurestrader walkforward`. Parameters are chosen using only each
 fold's training window, then applied blind to the next unseen year. Three
 numbers come out and the third is the one that matters: in-sample (hindsight),
 out-of-sample (what survived), and a never-tuned control.
@@ -267,7 +267,7 @@ correction below.
 ## Layout
 
 ```
-stokker/
+futurestrader/
   config.py            universe + verified CFTC contract codes
   research.py          orchestration the CLI and app both call
   data/
@@ -285,7 +285,7 @@ stokker/
 tests/                 34 tests; lookahead + roll regressions
 ```
 
-`stokker --help` for commands. `pytest -q` to verify.
+`futurestrader --help` for commands. `pytest -q` to verify.
 
 ---
 

@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from stokker.config import get
-from stokker.signals.base import Blend, Constant
-from stokker.signals.cot import CommercialFlow, CotExtreme
-from stokker.signals.momentum import EWMACrossover, TimeSeriesMomentum, VolRegimeFilter
+from futurestrader.config import get
+from futurestrader.signals.base import Blend, Constant
+from futurestrader.signals.cot import CommercialFlow, CotExtreme
+from futurestrader.signals.momentum import EWMACrossover, TimeSeriesMomentum, VolRegimeFilter
 
 ES = get("ES")
 

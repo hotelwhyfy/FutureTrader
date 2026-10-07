@@ -42,7 +42,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from stokker.config import Instrument
+from futurestrader.config import Instrument
 
 log = logging.getLogger(__name__)
 

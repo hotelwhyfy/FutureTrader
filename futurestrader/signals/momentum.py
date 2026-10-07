@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from stokker.signals.base import Signal
+from futurestrader.signals.base import Signal
 
 TRADING_DAYS = 252
 

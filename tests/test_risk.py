@@ -10,10 +10,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from stokker.risk import covariance as cov_mod
-from stokker.risk import stress
-from stokker.config import get
-from stokker.risk.portfolio import Position, analyse, parse_positions, size_to_vol_target
+from futurestrader.risk import covariance as cov_mod
+from futurestrader.risk import stress
+from futurestrader.config import get
+from futurestrader.risk.portfolio import Position, analyse, parse_positions, size_to_vol_target
 
 EQUITY = 100_000.0
 

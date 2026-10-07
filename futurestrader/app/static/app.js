@@ -1,4 +1,4 @@
-/* Stokker UI.
+/* FuturesTrader UI.
    Charts are hand-drawn SVG rather than a library: the whole app is four chart
    shapes, and this keeps the page dependency-free and fully offline. */
 
@@ -692,11 +692,11 @@ async function init() {
   };
 
   const root = document.documentElement;
-  const saved = (() => { try { return localStorage.getItem("stokker-theme"); } catch { return null; } })();
+  const saved = (() => { try { return localStorage.getItem("futurestrader-theme"); } catch { return null; } })();
   if (saved) root.dataset.theme = saved;
   $("#theme").onclick = () => {
     root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
-    try { localStorage.setItem("stokker-theme", root.dataset.theme); } catch {}
+    try { localStorage.setItem("futurestrader-theme", root.dataset.theme); } catch {}
     for (const [c, spec] of CHARTS) {
       if (document.body.contains(c) && c.clientWidth) spec._bar ? barChart(c, spec) : lineChart(c, spec);
     }

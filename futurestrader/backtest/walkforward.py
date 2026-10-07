@@ -48,10 +48,10 @@ from typing import Any, Callable, Sequence
 import numpy as np
 import pandas as pd
 
-from stokker.backtest import engine
-from stokker.backtest.costs import DEFAULT, CostModel
-from stokker.config import Instrument
-from stokker.signals.base import Signal
+from futurestrader.backtest import engine
+from futurestrader.backtest.costs import DEFAULT, CostModel
+from futurestrader.config import Instrument
+from futurestrader.signals.base import Signal
 
 log = logging.getLogger(__name__)
 TRADING_DAYS = 252

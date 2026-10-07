@@ -1,9 +1,9 @@
 """Streamlit research dashboard.
 
-Deliberately thin: every number here comes from `stokker.research`, so the app
+Deliberately thin: every number here comes from `futurestrader.research`, so the app
 cannot drift from what the CLI and the tests see.  Run with:
 
-    streamlit run stokker/app/dashboard.py
+    streamlit run futurestrader/app/dashboard.py
 """
 
 from __future__ import annotations
@@ -13,15 +13,15 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from stokker import research
-from stokker.backtest.costs import DEFAULT, STRESSED, CostModel
-from stokker.config import UNIVERSE, get, symbols
-from stokker.contracts import roll as roll_mod
-from stokker.signals.base import Blend, Constant
-from stokker.signals.cot import CommercialFlow, CotExtreme
-from stokker.signals.momentum import EWMACrossover, TimeSeriesMomentum
+from futurestrader import research
+from futurestrader.backtest.costs import DEFAULT, STRESSED, CostModel
+from futurestrader.config import UNIVERSE, get, symbols
+from futurestrader.contracts import roll as roll_mod
+from futurestrader.signals.base import Blend, Constant
+from futurestrader.signals.cot import CommercialFlow, CotExtreme
+from futurestrader.signals.momentum import EWMACrossover, TimeSeriesMomentum
 
-st.set_page_config(page_title="Stokker", page_icon="📈", layout="wide")
+st.set_page_config(page_title="FuturesTrader", page_icon="📈", layout="wide")
 
 SIGNALS = {
     "Time-series momentum": TimeSeriesMomentum,
@@ -45,7 +45,7 @@ def _dataset(symbol: str, start: str) -> research.Dataset:
     return research.Dataset(get(symbol), bars, rets, cot)
 
 
-st.title("Stokker")
+st.title("FuturesTrader")
 st.caption(
     "Futures trend research on free data. Everything here is a research output, "
     "not investment advice."

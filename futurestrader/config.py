@@ -2,7 +2,7 @@
 
 The CFTC contract codes below are the join key between price data (yfinance)
 and positioning data (COT).  They are transcribed from CFTC report headers and
-should be treated as *unverified until checked* -- run `stokker verify-universe`
+should be treated as *unverified until checked* -- run `futurestrader verify-universe`
 to confirm each code actually resolves to a contract in the downloaded reports.
 A wrong code fails loudly there rather than silently producing an empty series.
 """
@@ -16,7 +16,7 @@ from typing import Literal
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 CACHE_DIR = DATA_DIR / "cache"
-DB_PATH = DATA_DIR / "stokker.duckdb"
+DB_PATH = DATA_DIR / "futurestrader.duckdb"
 
 for _d in (DATA_DIR, CACHE_DIR):
     _d.mkdir(parents=True, exist_ok=True)

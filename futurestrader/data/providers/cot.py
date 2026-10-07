@@ -28,8 +28,8 @@ from datetime import timedelta
 import pandas as pd
 import requests
 
-from stokker.config import CACHE_DIR, CotReport
-from stokker.data.store import STORE
+from futurestrader.config import CACHE_DIR, CotReport
+from futurestrader.data.store import STORE
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ _URLS: dict[CotReport, str] = {
 _FIRST_YEAR: dict[CotReport, int] = {"tff": 2010, "disaggregated": 2010}
 
 _TIMEOUT = 60
-_HEADERS = {"User-Agent": "stokker/0.1 (research; contact via github)"}
+_HEADERS = {"User-Agent": "futurestrader/0.1 (research; contact via github)"}
 
 # Long/short column stems per report.  Note the double underscore in
 # "Swap__Positions_Short_All" -- that typo is in the CFTC header itself.
@@ -185,7 +185,7 @@ def for_instrument(cot_code: str, report: CotReport, years: range | list[int]) -
     if sub.empty:
         raise ValueError(
             f"no rows for cot_code={cot_code!r} in {report}; "
-            f"run `stokker verify-universe` or `stokker search-cot <name>`"
+            f"run `futurestrader verify-universe` or `futurestrader search-cot <name>`"
         )
     return sub.set_index("report_date").sort_index()
 

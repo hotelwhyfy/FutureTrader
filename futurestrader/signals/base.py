@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 
-from stokker.config import Instrument
+from futurestrader.config import Instrument
 
 
 class Signal(ABC):

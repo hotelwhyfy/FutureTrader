@@ -10,10 +10,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from stokker.backtest.costs import CostModel
-from stokker.backtest.walkforward import WalkForward, _sharpe
-from stokker.config import get
-from stokker.signals.momentum import TimeSeriesMomentum
+from futurestrader.backtest.costs import CostModel
+from futurestrader.backtest.walkforward import WalkForward, _sharpe
+from futurestrader.config import get
+from futurestrader.signals.momentum import TimeSeriesMomentum
 
 ES = get("ES")
 FREE = CostModel(slippage_ticks=0.0, commission_mult=0.0)
@@ -169,8 +169,8 @@ def test_short_history_raises_clearly():
 # ------------------------------------------------------- universe bootstrap
 def test_universe_bootstrap_spreads_and_reports():
     """Resampling the instrument list must expose composition sensitivity."""
-    from stokker.backtest import engine
-    from stokker.backtest.walkforward import universe_bootstrap
+    from futurestrader.backtest import engine
+    from futurestrader.backtest.walkforward import universe_bootstrap
 
     rng = np.random.default_rng(3)
     idx = pd.bdate_range("2012-01-01", periods=1500)
@@ -198,7 +198,7 @@ def test_universe_bootstrap_spreads_and_reports():
 
 
 def test_universe_bootstrap_rejects_undersized_universe():
-    from stokker.backtest.walkforward import universe_bootstrap
+    from futurestrader.backtest.walkforward import universe_bootstrap
 
     class R:
         def __init__(self, r):

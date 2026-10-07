@@ -10,13 +10,13 @@ import logging
 
 import pandas as pd
 
-from stokker.backtest import engine
-from stokker.backtest.costs import DEFAULT, CostModel
-from stokker.config import Instrument, get, symbols
-from stokker.contracts import roll
-from stokker.data.providers import cot as cot_data
-from stokker.data.providers.yahoo import YahooProvider
-from stokker.signals.base import Signal
+from futurestrader.backtest import engine
+from futurestrader.backtest.costs import DEFAULT, CostModel
+from futurestrader.config import Instrument, get, symbols
+from futurestrader.contracts import roll
+from futurestrader.data.providers import cot as cot_data
+from futurestrader.data.providers.yahoo import YahooProvider
+from futurestrader.signals.base import Signal
 
 log = logging.getLogger(__name__)
 
